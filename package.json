@@ -1,0 +1,16 @@
+{
+  "name": "fb2-to-epub-converter",
+  "version": "1.0.0",
+  "description": "Convertidor profesional de FB2 a EPUB para Kindle y e-readers",
+  "main": "fb2_to_epub_converter.html",
+  "scripts": {
+    "start": "npx http-server -p 3000",
+    "dev": "npx http-server"
+  },
+  "keywords": ["fb2", "epub", "kindle", "converter", "ebook"],
+  "author": "Tu Nombre",
+  "license": "MIT",
+  "engines": {
+    "node": "18.x"
+  }
+}

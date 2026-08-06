@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FictionBook xmlns="http://www.gribuser.ru/xml/fictionbook/2.1" xmlns:l="http://www.w3.org/1999/xlink">
+  <description>
+    <title-info>
+      <genre>science_fiction</genre>
+      <author>
+        <first-name>Pablo</first-name>
+        <last-name>García</last-name>
+      </author>
+      <book-title>El Viaje de la Abuela a través del Tiempo</book-title>
+      <annotation>
+        <p>Una aventura fantástica sobre viajes temporales, manuscritos antiguos y la magia de la lectura.</p>
+      </annotation>
+      <date>2026-08-06</date>
+      <lang>es</lang>
+    </title-info>
+  </description>
+  <body>
+    <section>
+      <title>
+        <p>Capítulo 1: El Descubrimiento</p>
+      </title>
+      <p>La abuela encontró un libro antiguo en el ático, polvoriento y casi olvidado. Sus páginas amarillentas susurraban historias de mundos lejanos.</p>
+      <p>Con <strong>cuidado reverencial</strong>, abrió la primera página. Las letras danzaban ante sus ojos como si cobraran vida propia.</p>
+    </section>
+    <section>
+      <title>
+        <p>Capítulo 2: El Primer Viaje</p>
+      </title>
+      <p>De repente, la habitación comenzó a brillar. Una <emphasis>luz azulada</emphasis> envolvió todo. La abuela cerró los ojos.</p>
+      <p>Cuando volvió a abrirlos, se encontraba en una ciudad de torres cristalinas. El futuro la esperaba.</p>
+      <section>
+        <title>
+          <p>Subcapítulo 2.1: Las Torres</p>
+        </title>
+        <p>Las torres se elevaban hasta las nubes, cada una más hermosa que la anterior. Pulsaban con energía luminosa.</p>
+      </section>
+    </section>
+    <section>
+      <title>
+        <p>Capítulo 3: Reflexión</p>
+      </title>
+      <p>La abuela comprendió que los libros no eran solo palabras. Eran puertas a otros mundos, portales que se abrían para quien quisiera traspasar sus límites.</p>
+      <p><strong>Este</strong> era el verdadero viaje.</p>
+    </section>
+  </body>
+</FictionBook>

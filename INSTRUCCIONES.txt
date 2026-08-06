@@ -1,0 +1,53 @@
+╔════════════════════════════════════════════════════════════════════════════════╗
+║                    FB2 a EPUB - CONVERTIDOR PROFESIONAL                        ║
+║                                                                                ║
+║                    Cómo usar (Incluso si no eres técnico)                      ║
+╚════════════════════════════════════════════════════════════════════════════════╝
+
+📖 DESCRIPCIÓN:
+Esta es una herramienta para convertir libros en formato FB2 a EPUB de forma perfecta.
+Los archivos EPUB funcionan perfectamente en Kindle, e-readers y apps de lectura.
+
+🚀 PASOS PARA USAR:
+
+1. Abre el archivo "fb2_to_epub_converter.html" en tu navegador
+   (Internet Explorer, Chrome, Firefox, Safari, etc.)
+
+2. Arrastra tu archivo FB2 al área morada que dice "Arrastra tu archivo FB2 aquí"
+   (O haz clic y selecciona el archivo)
+
+3. Elige las opciones que prefieras:
+   ✓ Preservar imágenes (recomendado)
+   ✓ Preservar estilos CSS (recomendado)
+   ✓ Optimizar para Kindle (recomendado)
+
+4. Espera a que aparezca el botón "Descargar EPUB"
+
+5. Haz clic en descargar y listo! El archivo EPUB estará en tu carpeta Descargas
+
+📱 DÓNDE USAR EL EPUB:
+
+✓ Amazon Kindle
+✓ Kobo
+✓ Google Play Libros
+✓ Apple Books
+✓ Calibre
+✓ Cualquier lector de EPUB
+
+🔒 SEGURIDAD:
+- TODO se procesa en tu computadora, no en internet
+- Tus archivos NO se envían a ningún servidor
+- Puedes usar esta herramienta sin conexión a internet
+
+⚠️ NOTAS IMPORTANTES:
+- Sólo funciona con archivos FB2 válidos
+- La herramienta preserva capítulos, párrafos, negrita, cursiva e imágenes
+- Si hay errores, recarga la página e intenta de nuevo
+
+📧 PREGUNTAS:
+Si algo no funciona, verifica que:
+1. El archivo FB2 no esté corrompido
+2. Estés usando un navegador moderno
+3. El archivo no sea demasiado grande (>100MB)
+
+¡Que disfrutes leyendo! 📚
