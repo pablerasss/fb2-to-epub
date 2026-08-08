@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📚 LectorPro - EPUB, FB2, MOBI, PDF</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg: #ffffff;
+            --text: #1a1a1a;
+            --accent: #667eea;
+            --border: #e0e0e0;
+            --panel-bg: #f5f5f5;
+        }
+
+        body.dark-mode {
+            --bg: #1a1a1a;
+            --text: #e0e0e0;
+            --panel-bg: #2d2d2d;
+            --border: #404040;
+        }
+
+        body.sepia-mode {
+            --bg: #f4ecd8;
+            --text: #3e2723;
+            --panel-bg: #ece0d1;
+            --border: #d4c5b9;
+        }
+
+        body.contrast-mode {
+            --bg: #000000;
+            --text: #ffff00;
+            --panel-bg: #1a1a1a;
+            --border: #ffff00;
+        }
+
+        body {
+            font-family: 'Georgia', serif;
+            background-color: var(--bg);
+            color: var(--text);
+            transition: all 0.3s ease;
+            font-size: 16px;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* SIDEBAR IZQUIERDA - CONTROLES */
+        .sidebar {
+            width: 280px;
+            background: var(--panel-bg);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            padding: 15px;
+        }
+
+        .logo {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            text-align: center;
+            color: var(--accent);
+        }
+
+        .control-section {
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .control-section:last-child {
+            border-bottom: none;
+        }
+
+        .control-label {
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            color: var(--accent);
+        }
+
+        /* INPUT FILES */
+        .file-input-area {
+            display: none;
+        }
+
+        .file-input-area.active {
+            display: block;
+        }
+
+        .drop-zone {
+            border: 2px dashed var(--accent);
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            background: var(--bg);
+            transition: all 0.3s ease;
+            margin-bottom: 10px;
+        }
+
+        .drop-zone:hover {
+            background: var(--accent);
+            color: white;
+        }
+
+        .drop-zone-text {
+            font-size: 12px;
+            margin: 5px 0;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        /* BOTONES */
+        .btn {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+            width: 100%;
+            margin-bottom: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover {
+            opacity: 0.8;
+            transform: translateY(-2px);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: var(--border);
+            color: var(--text);
+        }
+
+        /* SLIDERS Y CONTROLES */
+        input[type="range"] {
+            width: 100%;
+            margin: 10px 0;
+        }
+
+        select, input[type="color"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            background: var(--bg);
+            color: var(--text);
+            margin-bottom: 8px;
+        }
+
+        .size-display {
+            text-align: center;
+            font-size: 12px;
+            margin: 5px 0;
+            color: var(--accent);
+        }
+
+        /* LIBRARY */
+        .library-list {
+            display: none;
+        }
+
+        .library-list.active {
+            display: block;
+        }
+
+        .book-item {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 10px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .book-item:hover {
+            background: var(--accent);
+            color: white;
+        }
+
+        .book-title {
+            font-weight: bold;
+            font-size: 13px;
+            margin-bottom: 3px;
+        }
+
+        .book-info {
+            font-size: 11px;
+            opacity: 0.8;
+        }
+
+        /* MAIN CONTENT */
+        .content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .reader-header {
+            background: var(--panel-bg);
+            border-bottom: 1px solid var(--border);
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .reader-title {
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .reader-controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        .reader-controls button {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .reader-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 40px;
+            line-height: 1.8;
+        }
+
+        .reader-content p {
+            margin-bottom: 1.2em;
+            text-align: justify;
+        }
+
+        .reader-content h1, .reader-content h2, .reader-content h3 {
+            margin-top: 1.5em;
+            margin-bottom: 0.5em;
+            color: var(--accent);
+        }
+
+        .reader-content strong {
+            font-weight: bold;
+        }
+
+        .reader-content em {
+            font-style: italic;
+        }
+
+        .reader-content img {
+            max-width: 100%;
+            height: auto;
+            margin: 1.5em 0;
+            border-radius: 6px;
+        }
+
+        /* PLACEHOLDER */
+        .welcome-screen {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            text-align: center;
+        }
+
+        .welcome-screen.hidden {
+            display: none;
+        }
+
+        .welcome-icon {
+            font-size: 60px;
+            margin-bottom: 20px;
+        }
+
+        .welcome-text {
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+
+        .welcome-subtext {
+            font-size: 14px;
+            opacity: 0.6;
+        }
+
+        /* PAGINATION */
+        .reader-footer {
+            background: var(--panel-bg);
+            border-top: 1px solid var(--border);
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+        }
+
+        /* RESPONSIVE */
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 100%;
+                height: auto;
+                border-right: none;
+                border-bottom: 1px solid var(--border);
+                max-height: 200px;
+                overflow-x: auto;
+                display: flex;
+                flex-direction: row;
+            }
+
+            .control-section {
+                flex: 0 0 auto;
+                margin-right: 20px;
+                margin-bottom: 0;
+                padding-bottom: 0;
+                border-bottom: none;
+                border-right: 1px solid var(--border);
+                padding-right: 15px;
+                min-width: 200px;
+            }
+
+            .container {
+                flex-direction: column;
+            }
+
+            .reader-content {
+                padding: 20px;
+            }
+
+            body {
+                font-size: 14px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .sidebar {
+                max-height: 150px;
+            }
+
+            .control-section {
+                min-width: 150px;
+            }
+
+            .reader-content {
+                padding: 15px;
+            }
+
+            .reader-header {
+                padding: 10px;
+            }
+        }
+
+        /* TABLAS PARA NAVEGACIÓN */
+        .tabs {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 10px;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 8px;
+            font-size: 11px;
+            background: var(--border);
+            color: var(--text);
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .tab-btn.active {
+            background: var(--accent);
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- SIDEBAR IZQUIERDA -->
+        <div class="sidebar">
+            <div class="logo">📚 LectorPro</div>
+
+            <!-- TABS -->
+            <div class="tabs">
+                <button class="tab-btn active" onclick="showTab('upload')">📤 Cargar</button>
+                <button class="tab-btn" onclick="showTab('library')">📖 Biblioteca</button>
+                <button class="tab-btn" onclick="showTab('settings')">⚙️ Ajustes</button>
+            </div>
+
+            <!-- TAB: UPLOAD -->
+            <div class="file-input-area active" id="upload-tab">
+                <div class="control-section">
+                    <div class="control-label">Selecciona un archivo</div>
+                    <div class="drop-zone" onclick="document.getElementById('fileInput').click()">
+                        <div style="font-size: 20px;">📁</div>
+                        <div class="drop-zone-text">Haz clic o arrastra</div>
+                        <div class="drop-zone-text" style="font-size: 10px;">EPUB, FB2, MOBI, PDF</div>
+                    </div>
+                    <input type="file" id="fileInput" accept=".epub,.fb2,.mobi,.pdf" />
+                    <button class="btn" onclick="handleFileUpload()">Cargar archivo</button>
+                </div>
+            </div>
+
+            <!-- TAB: LIBRARY -->
+            <div class="file-input-area" id="library-tab">
+                <div class="control-section library-list" id="library-list">
+                    <div class="control-label">Mis libros (0)</div>
+                    <div id="book-list"></div>
+                </div>
+            </div>
+
+            <!-- TAB: SETTINGS -->
+            <div class="file-input-area" id="settings-tab">
+                <div class="control-section">
+                    <div class="control-label">🔤 Tamaño de letra</div>
+                    <input type="range" id="fontSizeSlider" min="12" max="28" value="16" onchange="updateFontSize(this.value)">
+                    <div class="size-display" id="sizeDisplay">16px</div>
+                </div>
+
+                <div class="control-section">
+                    <div class="control-label">✏️ Tipo de fuente</div>
+                    <select id="fontFamily" onchange="updateFont(this.value)">
+                        <option value="Georgia, serif">Serif (Clásico)</option>
+                        <option value="Arial, sans-serif">Sans-Serif (Moderno)</option>
+                        <option value="'OpenDyslexic', sans-serif">Dislexia-Friendly</option>
+                        <option value="'Courier New', monospace">Monoespaciada</option>
+                    </select>
+                </div>
+
+                <div class="control-section">
+                    <div class="control-label">🎨 Tema</div>
+                    <select onchange="setTheme(this.value)">
+                        <option value="light">☀️ Claro</option>
+                        <option value="dark">🌙 Oscuro</option>
+                        <option value="sepia">📖 Sepia</option>
+                        <option value="contrast">⚫⚪ Alto Contraste</option>
+                    </select>
+                </div>
+
+                <div class="control-section">
+                    <div class="control-label">🎨 Color de texto</div>
+                    <input type="color" id="textColor" value="#1a1a1a" onchange="updateTextColor(this.value)">
+                </div>
+
+                <div class="control-section">
+                    <div class="control-label">📄 Color de fondo</div>
+                    <input type="color" id="bgColor" value="#ffffff" onchange="updateBgColor(this.value)">
+                </div>
+            </div>
+        </div>
+
+        <!-- CONTENIDO PRINCIPAL -->
+        <div class="content">
+            <!-- HEADER -->
+            <div class="reader-header">
+                <div class="reader-title">Bienvenido a LectorPro</div>
+                <div class="reader-controls">
+                    <button onclick="previousPage()">← Atrás</button>
+                    <button onclick="toggleFullscreen()">🖥️ Pantalla completa</button>
+                    <button onclick="nextPage()">Adelante →</button>
+                </div>
+            </div>
+
+            <!-- LECTOR PRINCIPAL -->
+            <div class="reader-content" id="reader-content">
+                <div class="welcome-screen" id="welcome">
+                    <div class="welcome-icon">📚</div>
+                    <div class="welcome-text">LectorPro</div>
+                    <div class="welcome-subtext">
+                        Lee EPUB, FB2, MOBI y PDF<br>
+                        Personaliza tu experiencia de lectura
+                    </div>
+                </div>
+            </div>
+
+            <!-- FOOTER -->
+            <div class="reader-footer">
+                <div id="page-info">Página 1 de 1</div>
+                <div id="reading-time">⏱️ Tiempo estimado: --</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script>
+        // VARIABLES GLOBALES
+        let currentBook = null;
+        let currentPageIndex = 0;
+        let books = [];
+
+        // FUNCIONES DE TAB
+        function showTab(tab) {
+            document.querySelectorAll('.file-input-area').forEach(el => el.classList.remove('active'));
+            document.getElementById(tab + '-tab').classList.add('active');
+            
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            event.target.classList.add('active');
+        }
+
+        // CARGA DE ARCHIVO
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) handleFileSelect(file);
+        });
+
+        // DRAG AND DROP
+        document.querySelector('.drop-zone').addEventListener('dragover', e => {
+            e.preventDefault();
+            e.currentTarget.style.opacity = '0.7';
+        });
+
+        document.querySelector('.drop-zone').addEventListener('dragleave', e => {
+            e.currentTarget.style.opacity = '1';
+        });
+
+        document.querySelector('.drop-zone').addEventListener('drop', e => {
+            e.preventDefault();
+            const file = e.dataTransfer.files[0];
+            if (file) handleFileSelect(file);
+        });
+
+        function handleFileSelect(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const ext = file.name.split('.').pop().toLowerCase();
+                
+                if (ext === 'epub') {
+                    loadEPUB(e.target.result, file.name);
+                } else if (ext === 'fb2') {
+                    loadFB2(e.target.result, file.name);
+                } else if (ext === 'mobi') {
+                    loadMOBI(e.target.result, file.name);
+                } else if (ext === 'pdf') {
+                    loadPDF(e.target.result, file.name);
+                } else {
+                    alert('Formato no soportado');
+                }
+            };
+            
+            if (file.type.includes('text')) {
+                reader.readAsText(file);
+            } else {
+                reader.readAsArrayBuffer(file);
+            }
+        }
+
+        function handleFileUpload() {
+            document.getElementById('fileInput').click();
+        }
+
+        // PARSERS (Placeholders - los haremos en siguientes steps)
+        function loadEPUB(data, name) {
+            showMessage('EPUB: Próximamente (Step 2)', name);
+        }
+
+        function loadFB2(data, name) {
+            showMessage('FB2: Próximamente (Step 2)', name);
+        }
+
+        function loadMOBI(data, name) {
+            showMessage('MOBI: Próximamente (Step 2)', name);
+        }
+
+        function loadPDF(data, name) {
+            showMessage('PDF: Próximamente (Step 4)', name);
+        }
+
+        function showMessage(type, filename) {
+            const content = document.getElementById('reader-content');
+            const welcome = document.getElementById('welcome');
+            welcome.style.display = 'none';
+            content.innerHTML = `<p><strong>${type}</strong><br>Archivo: ${filename}</p>`;
+        }
+
+        // CONFIGURACIÓN DE LECTURA
+        function updateFontSize(size) {
+            document.getElementById('reader-content').style.fontSize = size + 'px';
+            document.getElementById('sizeDisplay').textContent = size + 'px';
+            localStorage.setItem('fontSize', size);
+        }
+
+        function updateFont(font) {
+            document.getElementById('reader-content').style.fontFamily = font;
+            localStorage.setItem('fontFamily', font);
+        }
+
+        function setTheme(theme) {
+            document.body.classList.remove('dark-mode', 'sepia-mode', 'contrast-mode');
+            
+            if (theme === 'dark') document.body.classList.add('dark-mode');
+            if (theme === 'sepia') document.body.classList.add('sepia-mode');
+            if (theme === 'contrast') document.body.classList.add('contrast-mode');
+            
+            localStorage.setItem('theme', theme);
+        }
+
+        function updateTextColor(color) {
+            document.documentElement.style.setProperty('--text', color);
+            localStorage.setItem('textColor', color);
+        }
+
+        function updateBgColor(color) {
+            document.documentElement.style.setProperty('--bg', color);
+            localStorage.setItem('bgColor', color);
+        }
+
+        function previousPage() {
+            if (currentPageIndex > 0) {
+                currentPageIndex--;
+                updatePageInfo();
+            }
+        }
+
+        function nextPage() {
+            currentPageIndex++;
+            updatePageInfo();
+        }
+
+        function updatePageInfo() {
+            document.getElementById('page-info').textContent = `Página ${currentPageIndex + 1}`;
+        }
+
+        // CARGAR PREFERENCIAS AL ABRIR
+        window.addEventListener('load', () => {
+            const fontSize = localStorage.getItem('fontSize') || '16';
+            const fontFamily = localStorage.getItem('fontFamily') || 'Georgia, serif';
+            const theme = localStorage.getItem('theme') || 'light';
+            
+            updateFontSize(fontSize);
+            updateFont(fontFamily);
+            setTheme(theme);
+        });
+    </script>
+</body>
+</html>
+        // PANTALLA COMPLETA
+        function toggleFullscreen() {
+            const content = document.getElementById('reader-content');
+            const sidebar = document.querySelector('.sidebar');
+            const header = document.querySelector('.reader-header');
+            const footer = document.querySelector('.reader-footer');
+            
+            if (!document.fullscreenElement) {
+                // Entra en pantalla completa
+                document.documentElement.requestFullscreen().catch(err => {
+                    alert('No se puede activar pantalla completa');
+                });
+                
+                sidebar.style.display = 'none';
+                header.style.display = 'none';
+                footer.style.display = 'none';
+                content.style.padding = '60px 80px';
+            } else {
+                // Sale de pantalla completa
+                document.exitFullscreen();
+                
+                sidebar.style.display = 'flex';
+                header.style.display = 'flex';
+                footer.style.display = 'flex';
+                content.style.padding = '40px';
+            }
+        }
+
+        // ESC para salir de pantalla completa
+        document.addEventListener('fullscreenchange', () => {
+            if (!document.fullscreenElement) {
+                document.querySelector('.sidebar').style.display = 'flex';
+                document.querySelector('.reader-header').style.display = 'flex';
+                document.querySelector('.reader-footer').style.display = 'flex';
+            }
+        });
