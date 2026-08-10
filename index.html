@@ -883,42 +883,54 @@
         /* ════════════════════════════════════════════════════════════ */
 
         async function readEpub(arrayBuffer) {
-            const zip = new JSZip();
-            const epubZip = await zip.loadAsync(arrayBuffer);
+            try {
+                const zip = new JSZip();
+                const epubZip = await zip.loadAsync(arrayBuffer);
 
-            const containerXml = await epubZip.file('META-INF/container.xml').async('string');
-            const containerDoc = new DOMParser().parseFromString(containerXml, 'text/xml');
-            const packagePath = containerDoc.querySelector('rootfile').getAttribute('full-path');
+                const containerXml = await epubZip.file('META-INF/container.xml').async('string');
+                const containerDoc = new DOMParser().parseFromString(containerXml, 'text/xml');
+                const packagePath = containerDoc.querySelector('rootfile').getAttribute('full-path');
 
-            const packageXml = await epubZip.file(packagePath).async('string');
-            const packageDoc = new DOMParser().parseFromString(packageXml, 'text/xml');
+                const packageXml = await epubZip.file(packagePath).async('string');
+                const packageDoc = new DOMParser().parseFromString(packageXml, 'text/xml');
 
-            const spine = packageDoc.querySelector('spine');
-            const manifest = {};
+                const spine = packageDoc.querySelector('spine');
+                const manifest = {};
 
-            packageDoc.querySelectorAll('item').forEach(item => {
-                manifest[item.getAttribute('id')] = item.getAttribute('href');
-            });
+                packageDoc.querySelectorAll('item').forEach(item => {
+                    manifest[item.getAttribute('id')] = item.getAttribute('href');
+                });
 
-            currentChapters = [];
-            spine.querySelectorAll('itemref').forEach(item => {
-                const href = manifest[item.getAttribute('idref')];
-                if (href) currentChapters.push(href);
-            });
+                currentChapters = [];
+                spine.querySelectorAll('itemref').forEach(item => {
+                    const href = manifest[item.getAttribute('idref')];
+                    if (href) currentChapters.push(href);
+                });
 
-            currentEpubDoc = epubZip;
-            document.getElementById('bookTitle').textContent = '📖 ' + currentBook.nombre;
-            displayEpubChapter(currentChapterIndex);
+                currentEpubDoc = epubZip;
+                document.getElementById('bookTitle').textContent = '📖 ' + currentBook.nombre;
+                displayEpubChapter(currentChapterIndex);
+            } catch (error) {
+                console.error('Error leyendo EPUB:', error);
+                showMessage('❌ Error', 'No se pudo leer el EPUB: ' + error.message);
+            }
         }
 
         async function displayEpubChapter(index) {
-            const href = currentChapters[index];
-            const chapterXml = await currentEpubDoc.file(href).async('string');
-            const chapterDoc = new DOMParser().parseFromString(chapterXml, 'text/html');
+            try {
+                const href = currentChapters[index];
+                const chapterXml = await currentEpubDoc.file(href).async('string');
+                const chapterDoc = new DOMParser().parseFromString(chapterXml, 'text/html');
 
-            document.getElementById('bookContent').innerHTML = chapterDoc.body.innerHTML;
-            updatePageInfo();
-            applyHighlights();
+                // Limpiar contenido y establecer el HTML
+                const content = chapterDoc.body.innerHTML;
+                document.getElementById('bookContent').innerHTML = content;
+                updatePageInfo();
+                applyHighlights();
+            } catch (error) {
+                console.error('Error mostrando capítulo EPUB:', error);
+                document.getElementById('bookContent').innerHTML = '<p>Error al cargar capítulo</p>';
+            }
         }
 
         /* ════════════════════════════════════════════════════════════ */
@@ -926,26 +938,50 @@
         /* ════════════════════════════════════════════════════════════ */
 
         function readFb2(arrayBuffer) {
-            const decoder = new TextDecoder();
-            const xmlString = decoder.decode(arrayBuffer);
-            const parser = new DOMParser();
-            currentXmlDoc = parser.parseFromString(xmlString, 'text/xml');
+            try {
+                const decoder = new TextDecoder();
+                const xmlString = decoder.decode(arrayBuffer);
+                const parser = new DOMParser();
+                currentXmlDoc = parser.parseFromString(xmlString, 'text/xml');
 
-            currentChapters = [];
-            const sections = currentXmlDoc.querySelectorAll('body > section');
-            sections.forEach((_, i) => currentChapters.push(i));
+                // Verificar si hay errores de parsing
+                if (currentXmlDoc.getElementsByTagName('parsererror').length > 0) {
+                    throw new Error('Error al parsear FB2');
+                }
 
-            document.getElementById('bookTitle').textContent = '📖 ' + currentBook.nombre;
-            displayFb2Chapter(currentChapterIndex);
+                currentChapters = [];
+                const sections = currentXmlDoc.querySelectorAll('body > section');
+                console.log('FB2: encontradas ' + sections.length + ' secciones');
+
+                sections.forEach((_, i) => currentChapters.push(i));
+
+                if (currentChapters.length === 0) {
+                    throw new Error('No se encontraron secciones en el FB2');
+                }
+
+                document.getElementById('bookTitle').textContent = '📖 ' + currentBook.nombre;
+                displayFb2Chapter(currentChapterIndex);
+            } catch (error) {
+                console.error('Error leyendo FB2:', error);
+                showMessage('❌ Error', 'No se pudo leer el FB2: ' + error.message);
+            }
         }
 
         function displayFb2Chapter(index) {
-            const sections = currentXmlDoc.querySelectorAll('body > section');
-            if (sections[index]) {
-                document.getElementById('bookContent').innerHTML = sections[index].innerHTML;
+            try {
+                const sections = currentXmlDoc.querySelectorAll('body > section');
+                if (sections[index]) {
+                    const content = sections[index].innerHTML;
+                    document.getElementById('bookContent').innerHTML = content;
+                } else {
+                    throw new Error('Sección ' + index + ' no encontrada');
+                }
+                updatePageInfo();
+                applyHighlights();
+            } catch (error) {
+                console.error('Error mostrando capítulo FB2:', error);
+                document.getElementById('bookContent').innerHTML = '<p>Error al cargar capítulo: ' + error.message + '</p>';
             }
-            updatePageInfo();
-            applyHighlights();
         }
 
         /* ════════════════════════════════════════════════════════════ */
@@ -953,33 +989,47 @@
         /* ════════════════════════════════════════════════════════════ */
 
         async function readPdf(arrayBuffer) {
-            const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
-            currentPdfDoc = pdf;
-            currentPdfPages = pdf.numPages;
+            try {
+                const pdf = await pdfjsLib.getDocument({ data: arrayBuffer, password: '' }).promise;
+                currentPdfDoc = pdf;
+                currentPdfPages = pdf.numPages;
 
-            currentChapters = [];
-            for (let i = 0; i < pdf.numPages; i++) {
-                currentChapters.push(i);
+                currentChapters = [];
+                for (let i = 0; i < pdf.numPages; i++) {
+                    currentChapters.push(i);
+                }
+
+                document.getElementById('bookTitle').textContent = '📖 ' + currentBook.nombre;
+                loadAndDisplayPdfPage(currentChapterIndex);
+            } catch (error) {
+                console.error('Error leyendo PDF:', error);
+                if (error.message.includes('encryption')) {
+                    showMessage('❌ Error', 'PDF encriptado o protegido. No se puede leer.');
+                } else {
+                    showMessage('❌ Error', 'No se pudo leer el PDF: ' + error.message);
+                }
             }
-
-            document.getElementById('bookTitle').textContent = '📖 ' + currentBook.nombre;
-            loadAndDisplayPdfPage(currentChapterIndex);
         }
 
         async function loadAndDisplayPdfPage(index) {
-            const page = await currentPdfDoc.getPage(index + 1);
-            const viewport = page.getViewport({ scale: 1.5 });
-            const canvas = document.createElement('canvas');
-            const context = canvas.getContext('2d');
+            try {
+                const page = await currentPdfDoc.getPage(index + 1);
+                const viewport = page.getViewport({ scale: 1.5 });
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
 
-            canvas.width = viewport.width;
-            canvas.height = viewport.height;
+                canvas.width = viewport.width;
+                canvas.height = viewport.height;
 
-            await page.render({ canvasContext: context, viewport }).promise;
+                await page.render({ canvasContext: context, viewport }).promise;
 
-            document.getElementById('bookContent').innerHTML = '';
-            document.getElementById('bookContent').appendChild(canvas);
-            updatePageInfo();
+                document.getElementById('bookContent').innerHTML = '';
+                document.getElementById('bookContent').appendChild(canvas);
+                updatePageInfo();
+            } catch (error) {
+                console.error('Error mostrando página PDF:', error);
+                document.getElementById('bookContent').innerHTML = '<p>Error al cargar página PDF: ' + error.message + '</p>';
+            }
         }
 
         /* ════════════════════════════════════════════════════════════ */
