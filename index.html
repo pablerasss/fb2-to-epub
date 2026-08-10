@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📚 LectorPro - Lee EPUB, FB2, MOBI, PDF</title>
+    <!-- Librería JSZip: Para descomprimir archivos ZIP (EPUB es un ZIP) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        /* VARIABLES DE COLOR - Se cambian según el tema */
+        :root {
+            --bg: #ffffff;
+            --text: #1a1a1a;
+            --accent: #667eea;
+            --border: #e0e0e0;
+            --panel-bg: #f5f5f5;
+        }
+        
+        /* TEMA OSCURO */
+        body.dark-mode {
+            --bg: #1a1a1a;
+            --text: #e0e0e0;
+            --panel-bg: #2d2d2d;
+            --border: #404040;
+        }
+        
+        /* TEMA SEPIA */
+        body.sepia-mode {
+            --bg: #f4ecd8;
+            --text: #3e2723;
+            --panel-bg: #ece0d1;
+            --border: #d4c5b9;
+        }
+        
+        /* TEMA ALTO CONTRASTE */
+        body.contrast-mode {
+            --bg: #000000;
+            --text: #ffff00;
+            --panel-bg: #1a1a1a;
+            --border: #ffff00;
+        }
+        
+        body {
+            font-family: 'Georgia', serif;
+            background-color: var(--bg);
+            color: var(--text);
+            transition: all 0.3s ease;
+            font-size: 16px;
+        }
+
+        /* LAYOUT PRINCIPAL: Flex con sidebar + contenido */
+        .container { display: flex; height: 100vh; overflow: hidden; }
+        
+        /* SIDEBAR IZQUIERDA */
+        .sidebar {
+            width: 280px;
+            background: var(--panel-bg);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            padding: 15px;
+            z-index: 100;
+        }
+
+        .logo { 
+            font-size: 20px; 
+            font-weight: bold; 
+            margin-bottom: 20px; 
+            text-align: center; 
+            color: var(--accent); 
+        }
+        
+        /* TABS: Cargar, Ajustes */
+        .tabs {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 15px;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 8px;
+            font-size: 11px;
+            background: var(--border);
+            color: var(--text);
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .tab-btn.active { 
+            background: var(--accent); 
+            color: white; 
+        }
+
+        .control-section {
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .control-section:last-child { border-bottom: none; }
+
+        .control-label {
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            color: var(--accent);
+        }
+
+        .drop-zone {
+            border: 2px dashed var(--accent);
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            background: var(--bg);
+            transition: all 0.3s ease;
+            margin-bottom: 10px;
+        }
+
+        .drop-zone:hover { background: var(--accent); color: white; }
+
+        .btn {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+            width: 100%;
+            margin-bottom: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover { opacity: 0.8; transform: translateY(-2px); }
+
+        input[type="range"] { width: 100%; margin: 10px 0; }
+        
+        select, input[type="color"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            background: var(--bg);
+            color: var(--text);
+            margin-bottom: 8px;
+        }
+
+        .size-display { 
+            text-align: center; 
+            font-size: 12px; 
+            margin: 5px 0; 
+            color: var(--accent); 
+        }
+
+        input[type="file"] { display: none; }
+
+        .file-input-area { display: none; }
+        .file-input-area.active { display: block; }
+
+        /* CONTENIDO PRINCIPAL */
+        .content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .reader-header {
+            background: var(--panel-bg);
+            border-bottom: 1px solid var(--border);
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .reader-title { 
+            font-size: 16px; 
+            font-weight: bold; 
+        }
+
+        .reader-controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        .reader-controls button {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        /* ÁREA DE LECTURA: Aquí aparece el contenido del libro */
+        .reader-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 40px;
+            line-height: 1.8;
+        }
+
+        .reader-content p { 
+            margin-bottom: 1.2em; 
+            text-align: justify; 
+        }
+        
+        .reader-content h1, 
+        .reader-content h2, 
+        .reader-content h3 {
+            margin-top: 1.5em;
+            margin-bottom: 0.5em;
+            color: var(--accent);
+        }
+
+        .reader-content img { 
+            max-width: 100%; 
+            height: auto; 
+            margin: 1.5em 0; 
+            border-radius: 6px; 
+        }
+
+        /* PANTALLA DE BIENVENIDA */
+        .welcome-screen {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            text-align: center;
+        }
+
+        .welcome-screen.hidden { display: none; }
+
+        .welcome-icon { font-size: 60px; margin-bottom: 20px; }
+        .welcome-text { font-size: 18px; margin-bottom: 10px; }
+        .welcome-subtext { font-size: 14px; opacity: 0.6; }
+
+        /* FOOTER: Información de página */
+        .reader-footer {
+            background: var(--panel-bg);
+            border-top: 1px solid var(--border);
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+        }
+
+        /* MODAL: Pregunta qué hacer con el archivo */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active { display: flex; }
+
+        .modal-content {
+            background: var(--bg);
+            padding: 40px;
+            border-radius: 12px;
+            text-align: center;
+            max-width: 450px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+
+        .modal-title {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: var(--accent);
+        }
+
+        .format-info {
+            background: var(--panel-bg);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 13px;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 15px;
+            flex-direction: column;
+        }
+
+        .modal-btn {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 15px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .modal-btn:hover { opacity: 0.8; transform: translateY(-2px); }
+        .modal-btn.secondary { background: var(--border); color: var(--text); }
+
+        /* RESPONSIVE: Mobile */
+        @media (max-width: 768px) {
+            .sidebar { 
+                width: 100%; 
+                height: auto; 
+                border-right: none; 
+                border-bottom: 1px solid var(--border); 
+                flex-direction: row; 
+                overflow-x: auto; 
+                max-height: 200px; 
+            }
+            .control-section { 
+                flex: 0 0 auto; 
+                margin-right: 20px; 
+                margin-bottom: 0; 
+                padding-bottom: 0; 
+                border-bottom: none; 
+                border-right: 1px solid var(--border); 
+                padding-right: 15px; 
+                min-width: 200px; 
+            }
+            .container { flex-direction: column; }
+            .reader-content { padding: 20px; }
+        }
+
+        @media (max-width: 480px) {
+            .sidebar { max-height: 150px; }
+            .control-section { min-width: 150px; }
+            .reader-content { padding: 15px; }
+            .reader-header { padding: 10px; }
+        }
+    </style>
+</head>
+<body>
+    <!-- MODAL: Aparece cuando cargas un archivo -->
+    <div class="modal" id="actionModal">
+        <div class="modal-content">
+            <div class="modal-title">¿Qué deseas hacer?</div>
+            <div class="format-info">
+                Archivo: <strong id="fileName"></strong><br>
+                Formato: <strong id="fileFormat"></strong>
+            </div>
+            <div class="modal-buttons" id="modalButtons"></div>
+        </div>
+    </div>
+
+    <!-- CONTENEDOR PRINCIPAL -->
+    <div class="container">
+        <!-- SIDEBAR IZQUIERDA: Cargar archivos y ajustes -->
+        <div class="sidebar">
+            <div class="logo">📚 LectorPro</div>
+
+            <!-- TABS: Botones para cambiar entre vistas -->
+            <div class="tabs">
+                <button class="tab-btn active" onclick="showTab('upload')">📤 Cargar</button>
+                <button class="tab-btn" onclick="showTab('settings')">⚙️ Ajustes</button>
+            </div>
+
+            <!-- TAB 1: CARGAR ARCHIVOS -->
+            <div class="file-input-area active" id="upload-tab">
+                <div class="control-section">
+                    <div class="control-label">Selecciona archivo</div>
+                    <div class="drop-zone" onclick="document.getElementById('fileInput').click()">
+                        <div style="font-size: 20px;">📁</div>
+                        <div style="font-size: 12px; margin: 5px 0;">Arrastra o haz clic</div>
+                        <div style="font-size: 10px;">EPUB, FB2, MOBI, PDF</div>
+                    </div>
+                    <!-- Input de archivo (invisible) -->
+                    <input type="file" id="fileInput" accept=".epub,.fb2,.mobi,.pdf" />
+                    <button class="btn" onclick="handleFileUpload()">Cargar</button>
+                </div>
+            </div>
+
+            <!-- TAB 2: AJUSTES DE LECTURA -->
+            <div class="file-input-area" id="settings-tab">
+                <!-- TAMAÑO DE LETRA -->
+                <div class="control-section">
+                    <div class="control-label">🔤 Tamaño</div>
+                    <input type="range" id="fontSizeSlider" min="12" max="28" value="16" onchange="updateFontSize(this.value)">
+                    <div class="size-display" id="sizeDisplay">16px</div>
+                </div>
+
+                <!-- TIPO DE FUENTE -->
+                <div class="control-section">
+                    <div class="control-label">✏️ Fuente</div>
+                    <select id="fontFamily" onchange="updateFont(this.value)">
+                        <option value="Georgia, serif">Serif</option>
+                        <option value="Arial, sans-serif">Sans-Serif</option>
+                        <option value="'OpenDyslexic', sans-serif">Dislexia</option>
+                        <option value="'Courier New', monospace">Monospace</option>
+                    </select>
+                </div>
+
+                <!-- TEMA -->
+                <div class="control-section">
+                    <div class="control-label">🎨 Tema</div>
+                    <select onchange="setTheme(this.value)">
+                        <option value="light">☀️ Claro</option>
+                        <option value="dark">🌙 Oscuro</option>
+                        <option value="sepia">📖 Sepia</option>
+                        <option value="contrast">⚫⚪ Contraste</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- CONTENIDO PRINCIPAL: Donde aparece el libro -->
+        <div class="content">
+            <!-- HEADER: Título y botones -->
+            <div class="reader-header">
+                <div class="reader-title" id="bookTitle">Bienvenido a LectorPro</div>
+                <div class="reader-controls">
+                    <button onclick="toggleFullscreen()">🖥️ Pantalla completa</button>
+                    <button onclick="previousPage()">← Atrás</button>
+                    <button onclick="nextPage()">Adelante →</button>
+                </div>
+            </div>
+
+            <!-- ÁREA DE LECTURA: Aquí aparece el contenido del libro -->
+            <div class="reader-content" id="reader-content">
+                <div class="welcome-screen" id="welcome">
+                    <div class="welcome-icon">📚</div>
+                    <div class="welcome-text">LectorPro</div>
+                    <div class="welcome-subtext">Lee EPUB, FB2, MOBI y PDF<br>Personaliza tu experiencia</div>
+                </div>
+            </div>
+
+            <!-- FOOTER: Información de página -->
+            <div class="reader-footer">
+                <div id="page-info">Página 1 de 1</div>
+                <div id="reading-time">⏱️ Capítulo actual</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT: Toda la lógica de la app -->
+    <script>
+        // ═══════════════════════════════════════════════════════════════
+        // VARIABLES GLOBALES: Guardan información mientras lees
+        // ═══════════════════════════════════════════════════════════════
+        
+        let currentFile = null;          // El archivo que estás leyendo
+        let currentFileType = null;      // Tipo: epub, fb2, mobi, pdf
+        let currentZip = null;           // El EPUB descomprimido (para lectura)
+        let currentChapters = [];        // Lista de capítulos del libro
+        let currentChapterIndex = 0;     // Qué capítulo estás leyendo (0, 1, 2...)
+
+        // ═══════════════════════════════════════════════════════════════
+        // FUNCIÓN 1: Mostrar/Ocultar tabs (Cargar / Ajustes)
+        // ═══════════════════════════════════════════════════════════════
+        function showTab(tab) {
+            // Ocultar todos los tabs
+            document.querySelectorAll('.file-input-area').forEach(el => el.classList.remove('active'));
+            
+            // Mostrar el tab seleccionado
+            document.getElementById(tab + '-tab').classList.add('active');
+            
+            // Marcar botón como activo
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            event.target.classList.add('active');
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // FUNCIÓN 2: Cuando el usuario hace clic en "Cargar"
+        // ═══════════════════════════════════════════════════════════════
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                handleFileSelect(file);
+            }
+        });
+
+        // ═══════════════════════════════════════════════════════════════
+        // FUNCIÓN 3: Cuando el usuario selecciona un archivo
+        // ═══════════════════════════════════════════════════════════════
+        function handleFileSelect(file) {
+            currentFile = file;
+            // Obtener el tipo de archivo: "epub" de "libro.epub"
+            currentFileType = file.name.split('.').pop().toLowerCase();
+            
+            // Mostrar información en el modal
+            document.getElementById('fileName').textContent = file.name;
+            document.getElementById('fileFormat').textContent = currentFileType.toUpperCase();
+            
+            // Generar botones del modal según el tipo
+            generateModalButtons();
+            
+            // Mostrar el modal
+            document.getElementById('actionModal').classList.add('active');
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // FUNCIÓN 4: Generar botones del modal (qué hacer con archivo)
+        // ═══════════════════════════════════════════════════════════════
+        function generateModalButtons() {
+            const formats = ['epub', 'fb2', 'mobi', 'pdf'];
+            // Obtener formatos a los que PUEDES convertir
+            const otherFormats = formats.filter(f => f !== currentFileType);
+            
+            const modalButtons = document.getElementById('modalButtons');
+            modalButtons.innerHTML = ''; // Limpiar botones anteriores
+
+            // Botones de conversión (a otros formatos)
+            otherFormats.forEach(format => {
+                const btn = document.createElement('button');
+                btn.className = 'modal-btn';
+                btn.textContent = `📤 Convertir a ${format.toUpperCase()}`;
+                btn.onclick = () => {
+                    closeModal();
+                    showMessage(`🔄 Conversión ${currentFileType.toUpperCase()}→${format.toUpperCase()}`, 
+                               `Phase 2: Convertidor en construcción`);
+                };
+                modalButtons.appendChild(btn);
+            });
+
+            // Botón para LEER el archivo
+            const readBtn = document.createElement('button');
+            readBtn.className = 'modal-btn';
+            readBtn.textContent = `📖 Leer ahora (${currentFileType.toUpperCase()})`;
+            readBtn.onclick = () => {
+                closeModal();
+                readFile();
+            };
+            modalButtons.appendChild(readBtn);
+
+            // Botón cancelar
+            const cancelBtn = document.createElement('button');
+            cancelBtn.className = 'modal-btn secondary';
+            cancelBtn.textContent = '❌ Cancelar';
+            cancelBtn.onclick = () => closeModal();
+            modalButtons.appendChild(cancelBtn);
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // FUNCIÓN 5: Cerrar modal
+        // ═══════════════════════════════════════════════════════════════
+        function closeModal() {
+            document.getElementById('actionModal').classList.remove('active');
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // FUNCIÓN 6: Decidir qué hacer según el tipo de archivo
+        // ═══════════════════════════════════════════════════════════════
+        function readFile() {
+            if (currentFileType === 'epub') {
+                // Para EPUB: Leer como ArrayBuffer (porque es un ZIP)
+                const reader = new FileReader();
+                reader.onload = (e) => readEpub(e.target.result);
+                reader.readAsArrayBuffer(currentFile);
+            } 
+            else if (currentFileType === 'fb2') {
+                // Para FB2: Leer como texto (es un XML)
+                const reader = new FileReader();
+                reader.onload = (e) => readFb2(e.target.result);
+                reader.readAsText(currentFile);
+            }
+            else if (currentFileType === 'mobi') {
+                showMessage('📖 Lectura MOBI', 'Phase 1.3: Lector MOBI próximamente');
+            }
+            else if (currentFileType === 'pdf') {
+                showMessage('📖 Lectura PDF', 'Phase 1.4: Lector PDF próximamente');
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // FUNCIÓN 7: LECTOR EPUB - LA FUNCIÓN PRINCIPAL
+        // ═══════════════════════════════════════════════════════════════
+        async function readEpub(arrayBuffer) {
+            try {
+                // PASO 1: Descomprimir el EPUB (que es un ZIP)
+                const zip = new JSZip();
+                await zip.loadAsync(arrayBuffer);
+                currentZip = zip; // Guardar para uso posterior
+                
+                // PASO 2: Leer container.xml (dice dónde está el índice)
+                const containerXml = await zip.file("META-INF/container.xml").async("text");
+                
+                // PASO 3: Parsear container.xml para obtener ruta del package
+                const parser = new DOMParser();
+                const containerDoc = parser.parseFromString(containerXml, "application/xml");
+                const rootfile = containerDoc.querySelector("rootfile");
+                const packagePath = rootfile.getAttribute("full-path");
+                
+                // PASO 4: Leer package.opf (índice del libro)
+                const packageXml = await zip.file(packagePath).async("text");
+                
+                // PASO 5: Parsear package.opf para obtener lista de capítulos
+                const packageDoc = parser.parseFromString(packageXml, "application/xml");
+                
+                // Obtener el título del libro
+                const titleElem = packageDoc.querySelector("metadata > title");
+                const bookTitle = titleElem ? titleElem.textContent : 'Sin título';
+                document.getElementById('bookTitle').textContent = bookTitle;
+                
+                // Obtener los capítulos en orden (del spine)
+                const spineItemrefs = packageDoc.querySelectorAll("spine itemref");
+                currentChapters = [];
+                
+                // Para cada capítulo en el spine...
+                spineItemrefs.forEach(itemref => {
+                    const idref = itemref.getAttribute("idref");
+                    // Buscar ese ID en el manifest para obtener la ruta
+                    const item = packageDoc.querySelector(`manifest item[id="${idref}"]`);
+                    if (item) {
+                        const href = item.getAttribute("href");
+                        // Calcular ruta completa (package.opf está en una carpeta)
+                        const basePath = packagePath.substring(0, packagePath.lastIndexOf('/') + 1);
+                        const fullPath = basePath + href;
+                        currentChapters.push(fullPath);
+                    }
+                });
+                
+                // PASO 6: Mostrar primer capítulo
+                if (currentChapters.length > 0) {
+                    currentChapterIndex = 0;
+                    loadAndDisplayEpubChapter(0);
+                } else {
+                    showMessage('❌ Error', 'No se encontraron capítulos en el EPUB');
+                }
+                
+                // Actualizar footer
+                document.getElementById('reading-time').textContent = `Capítulo 1 de ${currentChapters.length}`;
+                
+            } catch (error) {
+                showMessage('❌ Error', 'No se pudo leer el EPUB: ' + error.message);
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // FUNCIÓN 8: Cargar y mostrar un capítulo EPUB
+        // ═══════════════════════════════════════════════════════════════
+        async function loadAndDisplayEpubChapter(index) {
+            try {
+                // Obtener ruta del capítulo
+                const chapterPath = currentChapters[index];
+                
+                // Leer el archivo XHTML del capítulo
+                const chapterHtml = await currentZip.file(chapterPath).async("text");
+                
+                // Mostrar en pantalla
+                displayChapter(chapterHtml);
+                
+                // Actualizar información de página
+                document.getElementById('page-info').textContent = `Capítulo ${index + 1} de ${currentChapters.length}`;
+                document.getElementById('reading-time').textContent = `Capítulo ${index + 1} de ${currentChapters.length}`;
+                
+            } catch (error) {
+                showMessage('❌ Error', 'No se pudo cargar el capítulo: ' + error.message);
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // FUNCIÓN 9: LECTOR FB2 (Temporal - mejora en Step 1.2)
+        // ═══════════════════════════════════════════════════════════════
+        function readFb2(xmlText) {
+            showMessage('📖 Lectura FB2', 'Phase 1.2: Lector FB2 próximamente');
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // FUNCIÓN 10: Mostrar un capítulo en la pantalla
+        // ═══════════════════════════════════════════════════════════════
+        function displayChapter(html) {
+            // Ocultar pantalla de bienvenida
+            document.getElementById('welcome').style.display = 'none';
+            
+            // Mostrar contenido
+            document.getElementById('reader-content').innerHTML = html;
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // FUNCIÓN 11: Botón Adelante (siguiente capítulo)
+        // ═══════════════════════════════════════════════════════════════
+        function nextPage() {
+            if (currentFileType === 'epub' && currentChapterIndex < currentChapters.length - 1) {
+                currentChapterIndex++;
+                loadAndDisplayEpubChapter(currentChapterIndex);
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // FUNCIÓN 12: Botón Atrás (capítulo anterior)
+        // ═══════════════════════════════════════════════════════════════
+        function previousPage() {
+            if (currentFileType === 'epub' && currentChapterIndex > 0) {
+                currentChapterIndex--;
+                loadAndDisplayEpubChapter(currentChapterIndex);
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // FUNCIÓN 13: Pantalla completa
+        // ═══════════════════════════════════════════════════════════════
+        function toggleFullscreen() {
+            const content = document.getElementById('reader-content');
+            const sidebar = document.querySelector('.sidebar');
+            const header = document.querySelector('.reader-header');
+            const footer = document.querySelector('.reader-footer');
+            
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(() => alert('No se puede activar pantalla completa'));
+                sidebar.style.display = 'none';
+                header.style.display = 'none';
+                footer.style.display = 'none';
+                content.style.padding = '60px 80px';
+            } else {
+                document.exitFullscreen();
+                sidebar.style.display = 'flex';
+                header.style.display = 'flex';
+                footer.style.display = 'flex';
+                content.style.padding = '40px';
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // FUNCIÓN 14: Cambiar tamaño de letra
+        // ═══════════════════════════════════════════════════════════════
+        function updateFontSize(size) {
+            document.getElementById('reader-content').style.fontSize = size + 'px';
+            document.getElementById('sizeDisplay').textContent = size + 'px';
+            localStorage.setItem('fontSize', size);
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // FUNCIÓN 15: Cambiar tipo de fuente
+        // ═══════════════════════════════════════════════════════════════
+        function updateFont(font) {
+            document.getElementById('reader-content').style.fontFamily = font;
+            localStorage.setItem('fontFamily', font);
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // FUNCIÓN 16: Cambiar tema (Claro, Oscuro, Sepia, Contraste)
+        // ═══════════════════════════════════════════════════════════════
+        function setTheme(theme) {
+            document.body.classList.remove('dark-mode', 'sepia-mode', 'contrast-mode');
+            if (theme === 'dark') document.body.classList.add('dark-mode');
+            if (theme === 'sepia') document.body.classList.add('sepia-mode');
+            if (theme === 'contrast') document.body.classList.add('contrast-mode');
+            localStorage.setItem('theme', theme);
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // FUNCIÓN 17: Mostrar mensaje temporal
+        // ═══════════════════════════════════════════════════════════════
+        function showMessage(type, msg) {
+            const welcome = document.getElementById('welcome');
+            welcome.style.display = 'none';
+            document.getElementById('reader-content').innerHTML = `
+                <div style="padding: 40px; text-align: center;">
+                    <div style="font-size: 40px; margin-bottom: 20px;">${type.split(' ')[0]}</div>
+                    <p><strong>${type}</strong></p>
+                    <p style="margin-top: 10px; opacity: 0.7;">${msg}</p>
+                </div>
+            `;
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // FUNCIÓN 18: Botón de carga de archivo
+        // ═══════════════════════════════════════════════════════════════
+        function handleFileUpload() {
+            document.getElementById('fileInput').click();
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // FUNCIÓN 19: Al cargar la página, restaurar preferencias guardadas
+        // ═══════════════════════════════════════════════════════════════
+        window.addEventListener('load', () => {
+            const fontSize = localStorage.getItem('fontSize') || '16';
+            const fontFamily = localStorage.getItem('fontFamily') || 'Georgia, serif';
+            const theme = localStorage.getItem('theme') || 'light';
+            
+            updateFontSize(fontSize);
+            updateFont(fontFamily);
+            setTheme(theme);
+        });
+    </script>
+</body>
+</html>
