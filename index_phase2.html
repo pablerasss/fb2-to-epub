@@ -1,0 +1,1146 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LectorPro - E-Book Reader</title>
+
+    <!-- Librerías externas necesarias -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
+
+    <style>
+        /* ═══════════════════════════════════════════════════════════════════ */
+        /* VARIABLES CSS - Estos valores controlan los colores en toda la app */
+        /* ═══════════════════════════════════════════════════════════════════ */
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f5f5f5;
+            --text-primary: #000000;
+            --text-secondary: #666666;
+            --border-color: #cccccc;
+            --highlight-color: #ffff00;
+            --button-bg: #007bff;
+            --button-hover: #0056b3;
+        }
+
+        /* Tema Oscuro */
+        body.dark-mode {
+            --bg-primary: #1e1e1e;
+            --bg-secondary: #2d2d2d;
+            --text-primary: #ffffff;
+            --text-secondary: #aaaaaa;
+            --border-color: #444444;
+            --button-bg: #0d47a1;
+            --button-hover: #1565c0;
+        }
+
+        /* Tema Sepia */
+        body.sepia-mode {
+            --bg-primary: #fef5e7;
+            --bg-secondary: #f4e4c1;
+            --text-primary: #5d4e37;
+            --text-secondary: #8b7355;
+            --border-color: #d4af85;
+            --button-bg: #8b7355;
+            --button-hover: #5d4e37;
+        }
+
+        /* Tema Alto Contraste */
+        body.high-contrast-mode {
+            --bg-primary: #000000;
+            --bg-secondary: #111111;
+            --text-primary: #ffff00;
+            --text-secondary: #ffffff;
+            --border-color: #ffff00;
+            --button-bg: #ffff00;
+            --button-hover: #ffffff;
+        }
+
+        body.high-contrast-mode button {
+            color: #000000;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════ */
+        /* ESTILOS GENERALES */
+        /* ═══════════════════════════════════════════════════════════════════ */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        /* Fuente Dislexia */
+        body.dyslexia-font {
+            font-family: 'OpenDyslexic', 'Segoe UI', Arial, sans-serif;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════ */
+        /* LAYOUT PRINCIPAL - Estructura de 3 secciones */
+        /* ═══════════════════════════════════════════════════════════════════ */
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* Header/Encabezado */
+        .header {
+            background-color: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: bold;
+            min-width: 200px;
+        }
+
+        .header-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 8px 16px;
+            background-color: var(--button-bg);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: var(--button-hover);
+        }
+
+        /* Contenedor principal (sidebar + content) */
+        .main-content {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* Sidebar (tabs) */
+        .sidebar {
+            width: 200px;
+            background-color: var(--bg-secondary);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        .sidebar-tab {
+            padding: 15px;
+            cursor: pointer;
+            border-left: 4px solid transparent;
+            transition: all 0.3s;
+            background-color: var(--bg-secondary);
+            color: var(--text-primary);
+        }
+
+        .sidebar-tab:hover {
+            background-color: var(--bg-primary);
+        }
+
+        .sidebar-tab.active {
+            background-color: var(--bg-primary);
+            border-left-color: var(--button-bg);
+            font-weight: bold;
+        }
+
+        /* Área de contenido */
+        .content-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Panel específico */
+        .panel {
+            display: none;
+            flex-direction: column;
+            flex: 1;
+            overflow: auto;
+        }
+
+        .panel.active {
+            display: flex;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════ */
+        /* PANEL DE CARGA (Upload) */
+        /* ═══════════════════════════════════════════════════════════════════ */
+        .upload-panel {
+            padding: 30px;
+            text-align: center;
+        }
+
+        .upload-area {
+            border: 2px dashed var(--border-color);
+            border-radius: 8px;
+            padding: 40px;
+            margin-bottom: 20px;
+            transition: all 0.3s;
+            background-color: var(--bg-secondary);
+        }
+
+        .upload-area:hover {
+            border-color: var(--button-bg);
+            background-color: var(--bg-primary);
+        }
+
+        .upload-area.dragover {
+            border-color: var(--button-bg);
+            background-color: var(--button-bg);
+            opacity: 0.1;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════ */
+        /* PANEL DE LECTURA (Reader) */
+        /* ═══════════════════════════════════════════════════════════════════ */
+        .reader-container {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            padding: 20px;
+            gap: 15px;
+        }
+
+        #bookContent {
+            flex: 1;
+            overflow: auto;
+            padding: 20px;
+            background-color: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            line-height: 1.6;
+            user-select: text;
+        }
+
+        #bookContent p {
+            margin-bottom: 15px;
+        }
+
+        /* Estilos para subrayados */
+        .highlighted {
+            background-color: var(--highlight-color);
+            padding: 2px 4px;
+            border-radius: 2px;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .highlighted:hover {
+            opacity: 0.7;
+            text-decoration: line-through;
+        }
+
+        .highlighted::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: -25px;
+            left: 0;
+            background-color: #333;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-size: 12px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+
+        .highlighted:hover::after {
+            opacity: 1;
+        }
+
+        /* Canvas para PDFs */
+        canvas {
+            max-width: 100%;
+            max-height: 600px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+        }
+
+        /* Botones de navegación */
+        .navigation {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .nav-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════ */
+        /* PANEL BIBLIOTECA (Library) */
+        /* ═══════════════════════════════════════════════════════════════════ */
+        .library-panel {
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .library-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 15px;
+        }
+
+        .book-card {
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .book-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .book-title {
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        .book-meta {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .book-progress {
+            width: 100%;
+            height: 8px;
+            background-color: var(--bg-primary);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .book-progress-bar {
+            height: 100%;
+            background-color: var(--button-bg);
+            transition: width 0.3s;
+        }
+
+        .book-actions {
+            display: flex;
+            gap: 5px;
+            font-size: 12px;
+        }
+
+        .book-actions button {
+            flex: 1;
+            padding: 5px;
+            font-size: 12px;
+        }
+
+        .empty-library {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-secondary);
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════ */
+        /* PANEL AJUSTES (Settings) */
+        /* ═══════════════════════════════════════════════════════════════════ */
+        .settings-panel {
+            padding: 20px;
+            max-width: 400px;
+        }
+
+        .setting-group {
+            margin-bottom: 25px;
+        }
+
+        .setting-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+
+        .setting-group input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+        }
+
+        .setting-group select {
+            width: 100%;
+            padding: 8px;
+            background-color: var(--bg-secondary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+        }
+
+        .size-display {
+            display: inline-block;
+            background-color: var(--bg-secondary);
+            padding: 4px 8px;
+            border-radius: 4px;
+            margin-left: 10px;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════ */
+        /* FOOTER */
+        /* ═══════════════════════════════════════════════════════════════════ */
+        .footer {
+            background-color: var(--bg-secondary);
+            border-top: 1px solid var(--border-color);
+            padding: 10px 20px;
+            text-align: center;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════ */
+        /* MODAL (Diálogos emergentes) */
+        /* ═══════════════════════════════════════════════════════════════════ */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background-color: var(--bg-primary);
+            padding: 30px;
+            border-radius: 8px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .modal-content h2 {
+            margin-bottom: 15px;
+        }
+
+        .modal-content p {
+            margin-bottom: 20px;
+            color: var(--text-secondary);
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════ */
+        /* POPUP DE SELECCIÓN DE TEXTO (Highlight popup) */
+        /* ═══════════════════════════════════════════════════════════════════ */
+        #highlightPopup {
+            display: none;
+            position: absolute;
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 8px 12px;
+            z-index: 999;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        #highlightPopup button {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
+        /* ═══════════════════════════════════════════════════════════════════ */
+        /* RESPONSIVE */
+        /* ═══════════════════════════════════════════════════════════════════ */
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 150px;
+            }
+
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .header-buttons {
+                width: 100%;
+                flex-direction: column;
+            }
+
+            .header-buttons button {
+                width: 100%;
+            }
+
+            .library-list {
+                grid-template-columns: 1fr;
+            }
+
+            .settings-panel {
+                max-width: 100%;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .main-content {
+                flex-direction: column-reverse;
+            }
+
+            .sidebar {
+                width: 100%;
+                flex-direction: row;
+                border-right: none;
+                border-bottom: 1px solid var(--border-color);
+                max-height: 50px;
+                overflow-x: auto;
+                overflow-y: hidden;
+            }
+
+            .sidebar-tab {
+                border-left: none;
+                border-bottom: 4px solid transparent;
+                white-space: nowrap;
+                flex-shrink: 0;
+            }
+
+            .sidebar-tab.active {
+                border-left: none;
+                border-bottom-color: var(--button-bg);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- ENCABEZADO -->
+        <div class="header">
+            <h1 id="bookTitle">📖 LectorPro</h1>
+            <div class="header-buttons">
+                <button id="saveBookBtn" style="display: none;" onclick="saveBook()">💾 Guardar libro</button>
+                <button id="fullscreenBtn" style="display: none;" onclick="toggleFullscreen()">🖥️ Pantalla completa</button>
+            </div>
+        </div>
+
+        <!-- CONTENIDO PRINCIPAL -->
+        <div class="main-content">
+            <!-- SIDEBAR (Tabs) -->
+            <div class="sidebar">
+                <div class="sidebar-tab active" onclick="switchTab('upload')">📤 Cargar</div>
+                <div class="sidebar-tab" onclick="switchTab('library')">📖 Biblioteca</div>
+                <div class="sidebar-tab" onclick="switchTab('settings')">⚙️ Ajustes</div>
+            </div>
+
+            <!-- ÁREA DE CONTENIDO -->
+            <div class="content-area">
+                <!-- PANEL: CARGAR ARCHIVOS -->
+                <div id="upload" class="panel active upload-panel">
+                    <h2>📤 Cargar E-Book</h2>
+                    <p>Soporta: EPUB, FB2, PDF, MOBI</p>
+                    <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+                        <p style="font-size: 18px; margin-bottom: 10px;">📁 Arrastra archivos aquí o haz clic</p>
+                        <p style="font-size: 12px; color: var(--text-secondary);">Máximo 5 libros guardados simultáneamente</p>
+                    </div>
+                    <input type="file" id="fileInput" accept=".epub,.fb2,.pdf,.mobi" onchange="handleFileSelect(event)">
+                </div>
+
+                <!-- PANEL: BIBLIOTECA -->
+                <div id="library" class="panel library-panel">
+                    <h2>📖 Mi Biblioteca</h2>
+                    <div id="libraryList" class="library-list">
+                        <div class="empty-library">Tu biblioteca está vacía. Carga un libro para empezar.</div>
+                    </div>
+                </div>
+
+                <!-- PANEL: AJUSTES -->
+                <div id="settings" class="panel settings-panel">
+                    <h2>⚙️ Ajustes de Lectura</h2>
+
+                    <div class="setting-group">
+                        <label for="fontSize">Tamaño de letra: <span class="size-display" id="fontSizeDisplay">16px</span></label>
+                        <input type="range" id="fontSize" min="12" max="28" value="16" onchange="changeFontSize()">
+                    </div>
+
+                    <div class="setting-group">
+                        <label for="fontFamily">Tipografía:</label>
+                        <select id="fontFamily" onchange="changeFontFamily()">
+                            <option value="serif">Serif (Clásica)</option>
+                            <option value="sans-serif">Sans Serif (Moderna)</option>
+                            <option value="dyslexia">Dislexia (Accesible)</option>
+                        </select>
+                    </div>
+
+                    <div class="setting-group">
+                        <label for="theme">Tema:</label>
+                        <select id="theme" onchange="changeTheme()">
+                            <option value="light">☀️ Claro</option>
+                            <option value="dark">🌙 Oscuro</option>
+                            <option value="sepia">📖 Sepia</option>
+                            <option value="contrast">⭐ Alto Contraste</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- PANEL: LECTURA (aparece después de cargar un libro) -->
+                <div id="reader" class="panel reader-container" style="display: none;">
+                    <div id="bookContent">
+                        <p>Cargando libro...</p>
+                    </div>
+                    <div class="navigation">
+                        <button id="prevBtn" onclick="previousChapter()" style="display: none;">← Atrás</button>
+                        <span id="pageInfo" style="color: var(--text-secondary); font-size: 14px;"></span>
+                        <button id="nextBtn" onclick="nextChapter()" style="display: none;">Adelante →</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- FOOTER -->
+        <div class="footer">
+            LectorPro v2.0 | Phase 2: Almacenamiento + Subrayados MVP
+        </div>
+    </div>
+
+    <!-- MODAL PARA DIÁLOGOS -->
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <h2 id="modalTitle">Título</h2>
+            <p id="modalMessage">Mensaje</p>
+            <div class="modal-buttons">
+                <button id="modalOkBtn" onclick="closeModal()">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- POPUP PARA SUBRAYAR TEXTO -->
+    <div id="highlightPopup">
+        <button onclick="highlightSelection()">✏️ Subrayar</button>
+    </div>
+
+    <!-- SCRIPT PRINCIPAL -->
+    <script>
+        /* VARIABLES GLOBALES */
+        let currentFileType = null;
+        let currentChapterIndex = 0;
+        let currentChapters = [];
+        let currentHighlights = [];
+        let currentBook = null;
+        let currentEpubDoc = null;
+        let currentXmlDoc = null;
+        let currentPdfDoc = null;
+        let currentPdfPages = 0;
+        let db = null;
+
+        /* ════════════════════════════════════════════════════════════ */
+        /* INDEXEDDB - ALMACENAMIENTO LOCAL */
+        /* ════════════════════════════════════════════════════════════ */
+
+        function initIndexedDB() {
+            const request = indexedDB.open('LectorProDB', 1);
+
+            request.onerror = () => console.error('Error IndexedDB:', request.error);
+
+            request.onsuccess = () => {
+                db = request.result;
+                console.log('✅ IndexedDB listo');
+                loadLibrary();
+            };
+
+            request.onupgradeneeded = (event) => {
+                const database = event.target.result;
+                if (!database.objectStoreNames.contains('books')) {
+                    database.createObjectStore('books', { keyPath: 'id' });
+                    console.log('✅ Database creada');
+                }
+            };
+        }
+
+        function saveBook() {
+            if (!currentBook) {
+                showMessage('⚠️ Error', 'No hay libro cargado');
+                return;
+            }
+
+            const transaction = db.transaction(['books'], 'readonly');
+            const objectStore = transaction.objectStore('books');
+            const countRequest = objectStore.getAll();
+
+            countRequest.onsuccess = () => {
+                if (countRequest.result.length >= 5) {
+                    showMessage('⚠️ Límite', 'Máximo 5 libros. Elimina uno para guardar otro.');
+                    return;
+                }
+
+                const bookData = {
+                    id: 'libro_' + Date.now(),
+                    nombre: currentBook.nombre,
+                    tipo: currentFileType,
+                    data: currentBook.data,
+                    fechaGuardado: new Date().toLocaleDateString(),
+                    ultimaPosicion: { capitulo: currentChapterIndex },
+                    subrayados: currentHighlights
+                };
+
+                const saveTx = db.transaction(['books'], 'readwrite');
+                const saveStore = saveTx.objectStore('books');
+                saveStore.add(bookData);
+
+                showMessage('✅ Guardado', 'Libro guardado en biblioteca');
+                loadLibrary();
+            };
+        }
+
+        function loadLibrary() {
+            if (!db) return;
+
+            const transaction = db.transaction(['books'], 'readonly');
+            const objectStore = transaction.objectStore('books');
+            const request = objectStore.getAll();
+
+            request.onsuccess = () => {
+                const books = request.result;
+                const libraryList = document.getElementById('libraryList');
+                libraryList.innerHTML = '';
+
+                if (books.length === 0) {
+                    libraryList.innerHTML = '<div class="empty-library">Biblioteca vacía</div>';
+                    return;
+                }
+
+                books.forEach(book => {
+                    const card = document.createElement('div');
+                    card.className = 'book-card';
+                    card.innerHTML = `
+                        <div class="book-title">${book.nombre}</div>
+                        <div class="book-meta">📁 ${book.tipo.toUpperCase()} | 📅 ${book.fechaGuardado}</div>
+                        <div class="book-actions">
+                            <button onclick="loadBookFromLibrary('${book.id}')">📖 Leer</button>
+                            <button onclick="deleteBook('${book.id}')">🗑️ Eliminar</button>
+                        </div>
+                    `;
+                    libraryList.appendChild(card);
+                });
+            };
+        }
+
+        function loadBookFromLibrary(bookId) {
+            const transaction = db.transaction(['books'], 'readonly');
+            const objectStore = transaction.objectStore('books');
+            const request = objectStore.get(bookId);
+
+            request.onsuccess = () => {
+                const book = request.result;
+                if (!book) {
+                    showMessage('❌ Error', 'Libro no encontrado');
+                    return;
+                }
+
+                currentBook = book;
+                currentFileType = book.tipo;
+                currentHighlights = book.subrayados || [];
+                currentChapterIndex = book.ultimaPosicion.capitulo || 0;
+
+                if (book.tipo === 'epub') readEpub(book.data);
+                else if (book.tipo === 'fb2') readFb2(book.data);
+                else if (book.tipo === 'pdf') readPdf(book.data);
+
+                switchTab('reader');
+            };
+        }
+
+        function deleteBook(bookId) {
+            if (!confirm('¿Eliminar este libro?')) return;
+
+            const transaction = db.transaction(['books'], 'readwrite');
+            const objectStore = transaction.objectStore('books');
+            objectStore.delete(bookId);
+
+            loadLibrary();
+        }
+
+        /* ════════════════════════════════════════════════════════════ */
+        /* SUBRAYADOS */
+        /* ════════════════════════════════════════════════════════════ */
+
+        document.addEventListener('mouseup', () => {
+            const selection = window.getSelection();
+            const text = selection.toString().trim();
+
+            if (text.length > 0) {
+                const range = selection.getRangeAt(0);
+                const rect = range.getBoundingClientRect();
+                const popup = document.getElementById('highlightPopup');
+                popup.style.display = 'block';
+                popup.style.left = (rect.left + window.scrollX) + 'px';
+                popup.style.top = (rect.top + window.scrollY - 40) + 'px';
+                window.selectedRange = range;
+            } else {
+                document.getElementById('highlightPopup').style.display = 'none';
+            }
+        });
+
+        function highlightSelection() {
+            const selection = window.getSelection();
+            const text = selection.toString().trim();
+
+            if (!text) {
+                alert('Selecciona texto primero');
+                return;
+            }
+
+            const highlight = {
+                id: 'hl_' + Date.now(),
+                texto: text,
+                capitulo: currentChapterIndex,
+                color: 'yellow'
+            };
+
+            currentHighlights.push(highlight);
+
+            if (currentBook && db) {
+                const transaction = db.transaction(['books'], 'readwrite');
+                const objectStore = transaction.objectStore('books');
+                currentBook.subrayados = currentHighlights;
+                objectStore.put(currentBook);
+            }
+
+            applyHighlights();
+            document.getElementById('highlightPopup').style.display = 'none';
+            showMessage('✅ Subrayado', 'Texto marcado');
+        }
+
+        function applyHighlights() {
+            const bookContent = document.getElementById('bookContent');
+            const chapterHighlights = currentHighlights.filter(h => h.capitulo === currentChapterIndex);
+
+            if (chapterHighlights.length === 0) return;
+
+            let html = bookContent.innerHTML;
+            chapterHighlights.forEach(h => {
+                const regex = new RegExp(`(${h.texto})`, 'gi');
+                html = html.replace(regex, `<span class="highlighted" onclick="deleteHighlight('${h.id}')">$1</span>`);
+            });
+            bookContent.innerHTML = html;
+        }
+
+        function deleteHighlight(id) {
+            currentHighlights = currentHighlights.filter(h => h.id !== id);
+
+            if (currentBook && db) {
+                const transaction = db.transaction(['books'], 'readwrite');
+                const objectStore = transaction.objectStore('books');
+                currentBook.subrayados = currentHighlights;
+                objectStore.put(currentBook);
+            }
+
+            applyHighlights();
+        }
+
+        /* ════════════════════════════════════════════════════════════ */
+        /* LECTURA: EPUB */
+        /* ════════════════════════════════════════════════════════════ */
+
+        async function readEpub(arrayBuffer) {
+            const zip = new JSZip();
+            const epubZip = await zip.loadAsync(arrayBuffer);
+
+            const containerXml = await epubZip.file('META-INF/container.xml').async('string');
+            const containerDoc = new DOMParser().parseFromString(containerXml, 'text/xml');
+            const packagePath = containerDoc.querySelector('rootfile').getAttribute('full-path');
+
+            const packageXml = await epubZip.file(packagePath).async('string');
+            const packageDoc = new DOMParser().parseFromString(packageXml, 'text/xml');
+
+            const spine = packageDoc.querySelector('spine');
+            const manifest = {};
+
+            packageDoc.querySelectorAll('item').forEach(item => {
+                manifest[item.getAttribute('id')] = item.getAttribute('href');
+            });
+
+            currentChapters = [];
+            spine.querySelectorAll('itemref').forEach(item => {
+                const href = manifest[item.getAttribute('idref')];
+                if (href) currentChapters.push(href);
+            });
+
+            currentEpubDoc = epubZip;
+            document.getElementById('bookTitle').textContent = '📖 ' + currentBook.nombre;
+            displayEpubChapter(currentChapterIndex);
+        }
+
+        async function displayEpubChapter(index) {
+            const href = currentChapters[index];
+            const chapterXml = await currentEpubDoc.file(href).async('string');
+            const chapterDoc = new DOMParser().parseFromString(chapterXml, 'text/html');
+
+            document.getElementById('bookContent').innerHTML = chapterDoc.body.innerHTML;
+            updatePageInfo();
+            applyHighlights();
+        }
+
+        /* ════════════════════════════════════════════════════════════ */
+        /* LECTURA: FB2 */
+        /* ════════════════════════════════════════════════════════════ */
+
+        function readFb2(arrayBuffer) {
+            const decoder = new TextDecoder();
+            const xmlString = decoder.decode(arrayBuffer);
+            const parser = new DOMParser();
+            currentXmlDoc = parser.parseFromString(xmlString, 'text/xml');
+
+            currentChapters = [];
+            const sections = currentXmlDoc.querySelectorAll('body > section');
+            sections.forEach((_, i) => currentChapters.push(i));
+
+            document.getElementById('bookTitle').textContent = '📖 ' + currentBook.nombre;
+            displayFb2Chapter(currentChapterIndex);
+        }
+
+        function displayFb2Chapter(index) {
+            const sections = currentXmlDoc.querySelectorAll('body > section');
+            if (sections[index]) {
+                document.getElementById('bookContent').innerHTML = sections[index].innerHTML;
+            }
+            updatePageInfo();
+            applyHighlights();
+        }
+
+        /* ════════════════════════════════════════════════════════════ */
+        /* LECTURA: PDF */
+        /* ════════════════════════════════════════════════════════════ */
+
+        async function readPdf(arrayBuffer) {
+            const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+            currentPdfDoc = pdf;
+            currentPdfPages = pdf.numPages;
+
+            currentChapters = [];
+            for (let i = 0; i < pdf.numPages; i++) {
+                currentChapters.push(i);
+            }
+
+            document.getElementById('bookTitle').textContent = '📖 ' + currentBook.nombre;
+            loadAndDisplayPdfPage(currentChapterIndex);
+        }
+
+        async function loadAndDisplayPdfPage(index) {
+            const page = await currentPdfDoc.getPage(index + 1);
+            const viewport = page.getViewport({ scale: 1.5 });
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+
+            await page.render({ canvasContext: context, viewport }).promise;
+
+            document.getElementById('bookContent').innerHTML = '';
+            document.getElementById('bookContent').appendChild(canvas);
+            updatePageInfo();
+        }
+
+        /* ════════════════════════════════════════════════════════════ */
+        /* NAVEGACIÓN */
+        /* ════════════════════════════════════════════════════════════ */
+
+        function nextChapter() {
+            if (currentChapterIndex < currentChapters.length - 1) {
+                currentChapterIndex++;
+                if (currentFileType === 'pdf') loadAndDisplayPdfPage(currentChapterIndex);
+                else if (currentFileType === 'epub') displayEpubChapter(currentChapterIndex);
+                else if (currentFileType === 'fb2') displayFb2Chapter(currentChapterIndex);
+            }
+        }
+
+        function previousChapter() {
+            if (currentChapterIndex > 0) {
+                currentChapterIndex--;
+                if (currentFileType === 'pdf') loadAndDisplayPdfPage(currentChapterIndex);
+                else if (currentFileType === 'epub') displayEpubChapter(currentChapterIndex);
+                else if (currentFileType === 'fb2') displayFb2Chapter(currentChapterIndex);
+            }
+        }
+
+        function updatePageInfo() {
+            const pageInfo = document.getElementById('pageInfo');
+            pageInfo.textContent = `Página ${currentChapterIndex + 1} de ${currentChapters.length}`;
+
+            document.getElementById('prevBtn').style.display = currentChapterIndex > 0 ? 'block' : 'none';
+            document.getElementById('nextBtn').style.display = currentChapterIndex < currentChapters.length - 1 ? 'block' : 'none';
+        }
+
+        /* ════════════════════════════════════════════════════════════ */
+        /* UI */
+        /* ════════════════════════════════════════════════════════════ */
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.sidebar-tab').forEach(t => t.classList.remove('active'));
+
+            const panel = document.getElementById(tabName);
+            if (panel) panel.classList.add('active');
+
+            event.target.classList.add('active');
+        }
+
+        function changeFontSize() {
+            const size = document.getElementById('fontSize').value;
+            document.getElementById('bookContent').style.fontSize = size + 'px';
+            document.getElementById('fontSizeDisplay').textContent = size + 'px';
+            localStorage.setItem('fontSize', size);
+        }
+
+        function changeFontFamily() {
+            const family = document.getElementById('fontFamily').value;
+            if (family === 'dyslexia') {
+                document.body.classList.add('dyslexia-font');
+            } else {
+                document.body.classList.remove('dyslexia-font');
+            }
+            localStorage.setItem('fontFamily', family);
+        }
+
+        function changeTheme() {
+            const theme = document.getElementById('theme').value;
+            document.body.classList.remove('dark-mode', 'sepia-mode', 'high-contrast-mode');
+
+            if (theme === 'dark') document.body.classList.add('dark-mode');
+            else if (theme === 'sepia') document.body.classList.add('sepia-mode');
+            else if (theme === 'contrast') document.body.classList.add('high-contrast-mode');
+
+            localStorage.setItem('theme', theme);
+        }
+
+        function toggleFullscreen() {
+            const elem = document.getElementById('bookContent');
+            if (!document.fullscreenElement) {
+                elem.requestFullscreen().catch(err => console.error(err));
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        function showMessage(title, message) {
+            document.getElementById('modalTitle').textContent = title;
+            document.getElementById('modalMessage').textContent = message;
+            document.getElementById('modal').classList.add('show');
+        }
+
+        function closeModal() {
+            document.getElementById('modal').classList.remove('show');
+        }
+
+        /* ════════════════════════════════════════════════════════════ */
+        /* UPLOAD */
+        /* ════════════════════════════════════════════════════════════ */
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const fileType = file.name.split('.').pop().toLowerCase();
+            if (!['epub', 'fb2', 'pdf', 'mobi'].includes(fileType)) {
+                showMessage('❌ Error', 'Formato no soportado');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                currentFileType = fileType;
+                currentChapterIndex = 0;
+                currentHighlights = [];
+                currentBook = { nombre: file.name.split('.')[0], data: e.target.result };
+
+                if (fileType === 'epub') readEpub(e.target.result);
+                else if (fileType === 'fb2') readFb2(e.target.result);
+                else if (fileType === 'pdf') readPdf(e.target.result);
+                else showMessage('⏳ Próximamente', 'MOBI en breve');
+
+                switchTab('reader');
+                document.getElementById('saveBookBtn').style.display = 'block';
+                document.getElementById('fullscreenBtn').style.display = 'block';
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        const uploadArea = document.getElementById('uploadArea');
+        uploadArea.addEventListener('dragover', e => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('dragover'));
+        uploadArea.addEventListener('drop', e => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            if (e.dataTransfer.files.length > 0) {
+                handleFileSelect({ target: { files: e.dataTransfer.files } });
+            }
+        });
+
+        /* ════════════════════════════════════════════════════════════ */
+        /* INIT */
+        /* ════════════════════════════════════════════════════════════ */
+
+        window.addEventListener('load', () => {
+            const fontSize = localStorage.getItem('fontSize') || '16';
+            const fontFamily = localStorage.getItem('fontFamily') || 'sans-serif';
+            const theme = localStorage.getItem('theme') || 'light';
+
+            document.getElementById('fontSize').value = fontSize;
+            document.getElementById('fontSizeDisplay').textContent = fontSize + 'px';
+            document.getElementById('bookContent').style.fontSize = fontSize + 'px';
+
+            document.getElementById('fontFamily').value = fontFamily;
+            if (fontFamily === 'dyslexia') document.body.classList.add('dyslexia-font');
+
+            document.getElementById('theme').value = theme;
+            changeTheme();
+
+            initIndexedDB();
+        });
+    </script>
+</body>
+</html>
